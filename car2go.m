@@ -2,9 +2,10 @@ function car2go( varargin)
 % car2go visualize and analyse
 clear all
 global  CarsData haxMap hTblCarData haxGraph Year0 car1Day1 ...
-        LastGraph LastTable
+        hpupTable hpupGraph hpupGrType LastGraph LastTable LastGrType ...
+        histData histTitle xTitle
 
-[LastGraph, LastTable] = deal(NaN);    
+[LastGraph, LastTable, LastGrType] = deal(NaN);    
 Year0 = 2014;
 figName = 'car2go';
 singleton = true;
@@ -379,27 +380,60 @@ UpdatePanel(currGraphNo, currTableNo);
     end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    function UpdatePanel(currGraph, currTable)
+    function UpdatePanel(varargin)
         % Handles to be updated
         % haxMap hTblCarData haxGraph
 
+        [isGraphNew, isGrTypeNew] = deal(false);
+        currGraph = get(hpupGraph,'val');
         if currGraph ~= LastGraph
             switch currGraph
                 case 1
                     histData = CarsData.CarsGoTimeDaily;
-                    histTitle = 'Car GoTime in a day (hr)';
+                    histTitle = 'Car GoTime daily (hr)';
+                    xTitle = 'Time, hr';
                     LastGraph = 1;
                 case 2
                     histData = CarsData.CarsGoDistDaily;
-                    histTitle = 'Car GoDist in a day (km)';
+                    histTitle = 'Car GoDist daily (km)';
+                    xTitle = 'Distance, km';
                     LastGraph = 2;
             end
-            [nelements, xcenters] = hist(haxGraph, histData);
-            bar(xcenters,nelements)
-            title(histTitle)
-            grid
+            isGraphNew = true;
         end
         
+        currGrType = get(hpupGrType,'val');
+        if currGrType ~= LastGrType
+            isGrTypeNew = true;
+        end        
+        
+        if isGraphNew || isGrTypeNew
+            [nelements, xcenters] = hist(haxGraph, histData);
+            nPlots = size(nelements,2);
+            LgndStr = {[]};
+            for i = 1:nPlots
+                LgndStr{i} = ['day',num2str(i)];
+            end
+
+            switch currGrType
+                case 1
+                    bar(xcenters,nelements)
+                    LastGrType = 1;
+                case 2
+                    plot(xcenters,nelements,'--','LineWidth',2,...
+                        'MarkerEdgeColor','k','MarkerFaceColor','w',...
+                        'Marker','o','MarkerSize',7)
+                    LastGrType = 2;
+            end
+            title(histTitle,'FontSize',12) %,'FontWeight','bold')
+            legend(LgndStr)
+            xlabel(xTitle,'FontSize',10,'FontWeight','bold')
+            grid
+
+        end
+        
+        
+        currTable = get(hpupTable,'val');
         if currTable ~= LastTable
             switch currTable
                 case 1
@@ -438,14 +472,14 @@ UpdatePanel(currGraphNo, currTableNo);
             case 'Table'
                 % Initially, displays raw data from input file
                 hTblCarData = uitable(parent,'Tag','CarData','enable','inactive',...
-                    'units','normalized','pos',[0.05 0.05 0.9 0.63]);
+                    'units','normalized','pos',[0.05 0.05 0.9 0.77]);
 
-                uicontrol(parent,'style','popup',...
+                hpupTable = uicontrol(parent,'style','popup',...
                     'Units','normalized','Tag','pupTable',...
                     'position',[0.05 0.85 0.2 0.12],...
                     'string',{'GoTime', 'GoDist', 'Fuel'},...
                     'value', 1,'visible','on',...
-                    'Callback', @CB_table_sel);
+                    'Callback', @UpdatePanel);
 
                 
             case 'Map'
@@ -459,12 +493,19 @@ UpdatePanel(currGraphNo, currTableNo);
                 haxGraph = axes('parent',parent,'units','normalized',...
                     'pos',[0.05 0.2 0.9 0.63]);
                 
-                uicontrol(parent,'style','popup',...
+                hpupGraph = uicontrol(parent,'style','popup',...
                     'Units','normalized','Tag','pupGraph',...
                     'position',[0.05 0.85 0.2 0.12],...
                     'string',{'GoTime', 'GoDist'},...
                     'value', 1,'visible','on',...
-                    'Callback', @CB_graph_sel);
+                    'Callback', @UpdatePanel);
+                
+                hpupGrType = uicontrol(parent,'style','popup',...
+                    'Units','normalized','Tag','pupGraph',...
+                    'position',[0.3 0.85 0.2 0.12],...
+                    'string',{'bars', 'line'},...
+                    'value', 1,'visible','on',...
+                    'Callback', @UpdatePanel);
 
         end
         
@@ -488,7 +529,7 @@ function colW = colWidth(hTable, strCell)
 
     [nr,nc] = size(strCell);
     maxLpxl = maxLpxl - (29+1.25*nc);
-    maxW = 10*ones(1,nc);
+    maxW = 15*ones(1,nc);
     colW = num2cell(maxW);
     for j = 1:nc
         for i = 1:nr
@@ -513,10 +554,10 @@ end
 % ========================================================================
 % ========================================================================
     function CBinpFile(varargin)
-
+        
         LstStr = sprintf('(%s) file: %s ( %s min)',InputData);
         [selection, ok] = listdlg('ListString', LstStr,'SelectionMode','single' );
-
+        
         if ok == 0
             selection = 1;
         end
@@ -527,11 +568,10 @@ end
             isHr = true;
             CarsData = getCarData(currCarInpF,isHr);
         end
+    end
         
 % hTopPnl = uipanel('parent',hF,'units','normalized',...
 %             'pos',[0.02 0.72 0.95 0.25],'backgroundcolor',bgc);
-
-        
 %         inpFLegend = {'city','input_file_name','frq'};
 %         htableInpF = uitable(hTopPnl,'Tag','tableInpF',...
 %             'units','normalized','pos',[0.02 0.35 0.68 0.6],'enable','on');
@@ -541,21 +581,20 @@ end
 %             'ColumnName',inpFLegend,'ColumnWidth', ColW_inpData,...
 %             'Data', InputData);
 %         isNew_inpF = false; %#ok<NASGU>
-    end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    function CB_graph_sel(varargin)
-        h = varargin{1};
-        currGraph = get(h,'val');
-        UpdatePanel(currGraph, LastTable)
-    end
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    function CB_table_sel(varargin)
-        h = varargin{1};
-        currTable = get(h,'val');
-        UpdatePanel(LastGraph, currTable)
-    end
+%     function CB_graph_sel(varargin)
+%         h = varargin{1};
+%         currGraph = get(h,'val');
+%         UpdatePanel(currGraph, LastTable)
+%     end
+% 
+%     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%     function CB_table_sel(varargin)
+%         h = varargin{1};
+%         currTable = get(h,'val');
+%         UpdatePanel(LastGraph, currTable)
+%     end
 
 % ========================================================================
 % ====     End of Functions     ==========================================
