@@ -427,7 +427,7 @@ UpdatePanel(currGraphNo, currTableNo);
             end
             title(histTitle,'FontSize',12) %,'FontWeight','bold')
             legend(LgndStr)
-            xlabel(xTitle,'FontSize',10,'FontWeight','bold')
+            xlabel(xTitle,'FontSize',12,'FontWeight','bold')
             grid
 
         end
